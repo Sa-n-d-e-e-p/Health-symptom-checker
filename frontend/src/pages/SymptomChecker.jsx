@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Loader2,
   RotateCcw,
+  CheckCircle2,
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL ? `${process.env.REACT_APP_BACKEND_URL}/api` : 'http://localhost:8000/api';
@@ -30,6 +31,23 @@ export default function SymptomChecker() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [hasProfile, setHasProfile] = useState(false);
+
+  useEffect(() => {
+    const checkProfile = async () => {
+      try {
+        const { data } = await axios.get(`${API}/user/profile`);
+        if (data && data.age) {
+          setHasProfile(true);
+        } else {
+          setHasProfile(false);
+        }
+      } catch (err) {
+        setHasProfile(false);
+      }
+    };
+    checkProfile();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -204,6 +222,27 @@ export default function SymptomChecker() {
                 data-testid="results-container"
                 className="space-y-4"
               >
+                {/* Emergency Alert */}
+                {result.is_emergency && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-red-600 rounded-2xl shadow-md p-6 flex items-start gap-4 text-white"
+                  >
+                    <div className="bg-white/20 p-3 rounded-full animate-pulse flex-shrink-0">
+                      <AlertTriangle className="w-8 h-8 text-white" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold mb-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                        CRITICAL MEDICAL ALERT
+                      </h3>
+                      <p className="text-sm text-red-50 font-medium">
+                        Your symptoms indicate a potential medical emergency. Please seek immediate medical care or call <strong>112</strong> right away. Do not wait.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Possible Conditions */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                   <div className="flex items-center justify-between mb-4">

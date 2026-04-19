@@ -73,14 +73,22 @@ function HistoryCard({ item, onDelete }) {
             <span className="text-xs text-slate-400">{formatDate(item.created_at)}</span>
           </div>
           <p className="text-sm font-medium text-slate-800 line-clamp-2">{item.symptoms}</p>
-          {topCondition && (
-            <div className="mt-2 flex items-center gap-1.5">
-              <span className="text-xs text-slate-500">Top condition:</span>
-              <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                {topCondition.name}
+          <div className="mt-2 flex items-center flex-wrap gap-2">
+            {topCondition && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-500">Top:</span>
+                <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                  {topCondition.name}
+                </span>
+              </div>
+            )}
+            {item.is_emergency && (
+              <span className="text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full border border-red-200 animate-pulse flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" strokeWidth={2} />
+                Emergency
               </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button

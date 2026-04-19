@@ -4,44 +4,73 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)
 ![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)
 ![Gemini AI](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=flat&logo=google&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 
-A modern, full-stack web application that uses Google's latest Gemini AI models to analyze user symptoms and provide structured educational insights, likely conditions, and recommended next steps.
+**Live Demo: [Insert Render/Vercel URL Here]**
+
+A modern, full-stack, production-ready web application that uses Google's latest Gemini AI models to analyze user symptoms and provide structured educational insights, likely conditions, and recommended next steps. It features a complete identity system and medical condition triage.
 
 ## ✨ Features
 
-- **Advanced AI Integration**: Powered by Google's `google-genai` SDK and the `gemini-pro`/`gemini-1.5-flash` models.
+- **Advanced AI Integration**: Powered by Google's `google-genai` SDK and the ultra-fast `gemini-2.5-flash` model.
+- **Context-Aware Medical Profiles**: Users can save Age, Gender, and Pre-existing Conditions, which are invisibly injected into the AI context to provide highly personalized and accurate medical insights.
+- **Emergency Triage Engine**: Automatically flags critical or life-threatening symptoms and overrides the UI with a pulsing emergency banner.
+- **User Authentication**: Secure JSON Web Token (JWT) identity system utilizing `passlib` and `bcrypt` password hashing. Data is strictly scoped to the logged-in user.
 - **Dynamic Frontend**: A beautiful responsive UI built with React, TailwindCSS, and Framer Motion micro-animations.
-- **Robust Async Backend**: Powered by FastAPI, ensuring lightning-fast non-blocking API endpoints.
-- **Persisted History**: Saves symptom checks securely to your MongoDB Atlas cluster using `motor` asyncio drivers.
+- **Robust Async Backend**: Powered by FastAPI and `motor` (asyncio MongoDB driver), ensuring lightning-fast non-blocking API endpoints.
+- **Universal Deployment**: Fully Dockerized. Includes `docker-compose.yml` for instant zero-configuration deployment on any machine.
 - **Mac-Native Fixes**: Bypasses strict macOS python SSL certificate limitations automatically using `certifi`.
 
 ## 📂 Project Structure
 
 ```
 Healthcare-Symptom-Checker-main/
+├── docker-compose.yml          # Master orchestrator for the stack
 ├── backend/
+│   ├── Dockerfile              # Backend container definition
 │   ├── main.py / server.py     # FastAPI application entrypoint
 │   ├── requirements.txt        # Python dependencies
 │   └── tests/                  # Pytest automated test suite
 └── frontend/
-    ├── public/                 # Static assets (favicons, manifest.json)
+    ├── Dockerfile              # Frontend container definition
+    ├── public/                 # Static assets
     ├── src/                    # React frontend source code
-    │   ├── pages/              # Primary route views (SymptomChecker, History)
-    │   ├── App.js              # Application router
-    │   └── index.css           # Tailwind configuration and globals
+    │   ├── context/            # AuthContext and state providers
+    │   ├── pages/              # Routes (Login, Profile, Checker, History)
+    │   ├── App.js              # Application router guards
+    │   └── index.css           # Tailwind configuration
     ├── package.json            # Node dependencies
     └── tailwind.config.js      # Utility styling configuration
 ```
 
-## 🛠️ Step-by-Step Setup Instructions
+## 🐳 Instant Setup (Using Docker - Recommended)
 
-Before you begin, ensure you have **Node.js (v18+)** and **Python (v3.10+)** installed.
+The application is containerized. To instantly start it without installing any local Python or Node environments:
+
+1. Guarantee Docker Desktop is running.
+2. In the root directory, create a `.env` file for the backend containers.
+   ```bash
+   GEMINI_API_KEY="your_actual_key_here"
+   MONGO_URL="mongodb+srv://..."
+   DB_NAME="healthcare"
+   JWT_SECRET_KEY="any_long_random_string_here"
+   ```
+3. Boot the stack:
+   ```bash
+   docker-compose up --build
+   ```
+4. Access the application at **http://localhost:3000**
+
+---
+
+## 🛠️ Step-by-Step Manual Setup Instructions
+
+If you prefer to run it locally for development, ensure you have **Node.js (v18+)** and **Python (v3.10+)** installed.
 
 ### 1. Database & Cloud Services
 You will need two pieces of credentials to run this application:
-
-1. **Google Gemini API Key**: Get a free key from [Google AI Studio](https://aistudio.google.com/app/apikey). It will start with either `AIzaSy` or `AQ.`.
-2. **MongoDB Atlas Connection**: Get your connection string from MongoDB Atlas. Be sure to whitelist your IP (`0.0.0.0/0`) in the Atlas **Network Access** tab otherwise your connection will time out.
+1. **Google Gemini API Key**: Get a free key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. **MongoDB Atlas Connection**: Get your connection string from MongoDB Atlas. Be sure to whitelist your IP (`0.0.0.0/0`) in the Atlas **Network Access** tab.
 
 ### 2. Start the Backend Server (Terminal 1)
 
@@ -53,18 +82,18 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Export your required environment variables:
+Export your required environment variables (or put them in `backend/.env`):
 ```bash
 export GEMINI_API_KEY="your_actual_key_here"
 export MONGO_URL="mongodb+srv://..."
 export DB_NAME="healthcare"
+export JWT_SECRET_KEY="any_long_random_string_here"
 ```
 
 Start the FastAPI application:
 ```bash
 uvicorn server:app --reload --host 0.0.0.0 --port 8000
 ```
-*Note: The backend runs natively on `http://localhost:8000`. You can visit `http://localhost:8000/docs` to see the auto-generated Swagger UI for testing API endpoints.*
 
 ### 3. Start the Frontend Application (Terminal 2)
 
@@ -74,16 +103,15 @@ cd frontend
 npm install --legacy-peer-deps
 npm start
 ```
-*Note: We recommend tracking `--legacy-peer-deps` due to the strict dependency resolutions required by `ajv` and some of the older charting libraries.*
+*Note: We recommend tracking `--legacy-peer-deps` due to the strict dependency resolutions required by some older libraries.*
 
-Navigate to **[http://localhost:3000](http://localhost:3000)** in your browser to view the application!
+Navigate to **[http://localhost:3000](http://localhost:3000)** in your browser!
 
 ---
 
 ## 🛑 Common Troubleshooting
 
-- **500 Internal Server Error (SSL Certificate Failed):** If you are running Python downloaded from Python.org on a Mac, you may see a MongoDB timeout due to SSL certificates. This app utilizes `tlsCAFile=certifi.where()` to bypass this, but be sure you successfully ran `pip install certifi`.
-- **404 Model Not Found:** If your API key begins with `AQ.`, make sure you are using the `google-genai` package and not the deprecated `google-generativeai` package.
+- **500 Internal Server Error (SSL Certificate Failed):** If you are running Python natively on a Mac, you may see a MongoDB timeout due to SSL certificates. This app utilizes `tlsCAFile=certifi.where()` to bypass this.
 - **Frontend Appears Blank or Fails to Fetch:** If `npm start` succeeds but no requests reach the backend, verify your frontend environment variables. The app automatically falls back to `http://localhost:8000/api` if a `.env` file does not set `REACT_APP_BACKEND_URL`.
 
 ## 📜 Disclaimer

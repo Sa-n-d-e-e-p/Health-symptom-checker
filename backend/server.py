@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +13,8 @@ import uuid
 from datetime import datetime, timezone
 from google import genai
 from google.genai import types
+from passlib.context import CryptContext
+from jose import jwt, JWTError
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,7 +22,7 @@ load_dotenv(ROOT_DIR / '.env')
 import certifi
 
 mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
+client = AsyncIOMotorClient(mongo_url, tls=True, tlsCAFile=certifi.where(), tlsAllowInvalidCertificates=True)
 db = client[os.environ['DB_NAME']]
 
 app = FastAPI()
@@ -28,10 +31,46 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- Auth Conf ---
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "super-secret-key-for-dev")
+ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = await db.users.find_one({"username": username})
+    if user is None:
+        raise credentials_exception
+    return user
+
 SYSTEM_MESSAGE = """You are a healthcare educational assistant. Analyze symptoms and respond with ONLY a valid JSON object (no markdown, no code blocks, just raw JSON).
 
 The JSON must contain:
 {
+  "is_emergency": false,
   "conditions": [
     {
       "name": "Condition Name",
@@ -47,6 +86,7 @@ The JSON must contain:
 }
 
 Rules:
+- Set "is_emergency": true ONLY if symptoms indicate a potentially life-threatening or severe situation requiring immediate emergency medical care (e.g., chest pain, stroke signs).
 - Provide 3-5 conditions sorted by likelihood (high first)
 - Provide 3-5 actionable next steps
 - Never make definitive diagnoses
@@ -55,6 +95,19 @@ Rules:
 
 
 # --- Pydantic Models ---
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+class UserProfile(BaseModel):
+    age: int
+    gender: str
+    pre_existing_conditions: str = ""
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
 class SymptomInput(BaseModel):
     symptoms: str
 
@@ -68,6 +121,7 @@ class Condition(BaseModel):
 class SymptomCheckResponse(BaseModel):
     id: str
     symptoms: str
+    is_emergency: bool = False
     conditions: List[Condition]
     next_steps: List[str]
     disclaimer: str
@@ -82,6 +136,7 @@ def doc_to_response(doc: dict) -> SymptomCheckResponse:
     return SymptomCheckResponse(
         id=doc["id"],
         symptoms=doc["symptoms"],
+        is_emergency=doc.get("is_emergency", False),
         conditions=[Condition(**c) for c in doc["conditions"]],
         next_steps=doc["next_steps"],
         disclaimer=doc["disclaimer"],
@@ -94,9 +149,51 @@ def doc_to_response(doc: dict) -> SymptomCheckResponse:
 async def root():
     return {"message": "Healthcare Symptom Checker API"}
 
+@api_router.post("/auth/register")
+async def register_user(user: UserCreate):
+    existing_user = await db.users.find_one({"username": user.username})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    
+    hashed_password = get_password_hash(user.password)
+    user_doc = {
+        "id": str(uuid.uuid4()),
+        "username": user.username,
+        "hashed_password": hashed_password
+    }
+    await db.users.insert_one(user_doc)
+    return {"message": "User registered successfully"}
+
+@api_router.post("/auth/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = await db.users.find_one({"username": form_data.username})
+    if not user or not verify_password(form_data.password, user["hashed_password"]):
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+    
+    access_token = create_access_token(data={"sub": user["username"]})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@api_router.get("/user/profile", response_model=UserProfile)
+async def get_profile(current_user: dict = Depends(get_current_user)):
+    profile = current_user.get("profile", {})
+    return UserProfile(
+        age=profile.get("age", 0),
+        gender=profile.get("gender", ""),
+        pre_existing_conditions=profile.get("pre_existing_conditions", "")
+    )
+
+@api_router.post("/user/profile")
+async def update_profile(profile: UserProfile, current_user: dict = Depends(get_current_user)):
+    await db.users.update_one(
+        {"_id": current_user["_id"]},
+        {"$set": {"profile": profile.model_dump()}}
+    )
+    return {"message": "Profile updated successfully"}
+
 
 @api_router.post("/symptoms/check", response_model=SymptomCheckResponse)
-async def check_symptoms(input: SymptomInput):
+async def check_symptoms(input: SymptomInput, current_user: dict = Depends(get_current_user)):
     if not input.symptoms or len(input.symptoms.strip()) < 5:
         raise HTTPException(status_code=400, detail="Please provide a meaningful symptom description.")
 
@@ -106,7 +203,14 @@ async def check_symptoms(input: SymptomInput):
 
     try:
         client = genai.Client(api_key=llm_key)
+        
         prompt = f"Based on these symptoms, suggest possible conditions and next steps with educational disclaimer: {input.symptoms}"
+        profile = current_user.get("profile")
+        if profile and profile.get("age") and profile.get("gender"):
+            patient_context = f"Patient context: {profile.get('age')} year old {profile.get('gender')}. Pre-existing conditions: {profile.get('pre_existing_conditions', 'None reported')}."
+            prompt = f"{patient_context}\n\n{prompt}"
+            logger.info(f"Injecting medical profile into prompt: {patient_context}")
+
         response = await client.aio.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
@@ -127,6 +231,7 @@ async def check_symptoms(input: SymptomInput):
 
         parsed = json.loads(cleaned)
 
+        is_emergency = parsed.get("is_emergency", False)
         conditions = [Condition(**c) for c in parsed.get("conditions", [])]
         next_steps = parsed.get("next_steps", [])
         disclaimer = parsed.get("disclaimer", "This information is for educational purposes only.")
@@ -142,7 +247,9 @@ async def check_symptoms(input: SymptomInput):
     now = datetime.now(timezone.utc)
     doc = {
         "id": record_id,
+        "user_id": current_user["id"],
         "symptoms": input.symptoms,
+        "is_emergency": is_emergency,
         "conditions": [c.model_dump() for c in conditions],
         "next_steps": next_steps,
         "disclaimer": disclaimer,
@@ -153,6 +260,7 @@ async def check_symptoms(input: SymptomInput):
     return SymptomCheckResponse(
         id=record_id,
         symptoms=input.symptoms,
+        is_emergency=is_emergency,
         conditions=conditions,
         next_steps=next_steps,
         disclaimer=disclaimer,
@@ -161,22 +269,22 @@ async def check_symptoms(input: SymptomInput):
 
 
 @api_router.get("/history", response_model=List[SymptomCheckResponse])
-async def get_history():
-    docs = await db.symptom_checks.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+async def get_history(current_user: dict = Depends(get_current_user)):
+    docs = await db.symptom_checks.find({"user_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return [doc_to_response(d) for d in docs]
 
 
 @api_router.get("/history/{check_id}", response_model=SymptomCheckResponse)
-async def get_history_item(check_id: str):
-    doc = await db.symptom_checks.find_one({"id": check_id}, {"_id": 0})
+async def get_history_item(check_id: str, current_user: dict = Depends(get_current_user)):
+    doc = await db.symptom_checks.find_one({"id": check_id, "user_id": current_user["id"]}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Record not found.")
     return doc_to_response(doc)
 
 
 @api_router.delete("/history/{check_id}")
-async def delete_history_item(check_id: str):
-    result = await db.symptom_checks.delete_one({"id": check_id})
+async def delete_history_item(check_id: str, current_user: dict = Depends(get_current_user)):
+    result = await db.symptom_checks.delete_one({"id": check_id, "user_id": current_user["id"]})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Record not found.")
     return {"message": "Deleted successfully."}

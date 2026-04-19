@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MONGO_URL=${MONGO_URL}
+      - DB_NAME=${DB_NAME:-healthcare}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-super-secret-key}
+      - JWT_ALGORITHM=HS256
+      - CORS_ORIGINS=http://localhost:3000
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true # Helps with hot-reloading in Windows/Mac containers
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
