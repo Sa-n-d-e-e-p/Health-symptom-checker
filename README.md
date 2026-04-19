@@ -6,7 +6,9 @@
 ![Gemini AI](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=flat&logo=google&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 
-**Live Demo: [https://health-symptom-checker-1.vercel.app/]**
+**Live Demo: [https://health-symptom-checker-1.vercel.app/](https://health-symptom-checker-1.vercel.app/)**
+
+> ⚠️ **Note for Users:** The backend API is hosted on Render's free tier. If the application has been inactive for 15+ minutes, the first API request (e.g., your first time logging in or registering) may take **30-50 seconds** to complete while the backend instance cold-starts. Subsequent requests will be instant.
 
 ## ✨ Key Features & Architecture
 
