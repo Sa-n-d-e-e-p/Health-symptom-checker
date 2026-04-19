@@ -8,18 +8,18 @@
 
 **Live Demo: [https://health-symptom-checker-1.vercel.app/]**
 
-A modern, full-stack, production-ready web application that uses Google's latest Gemini AI models to analyze user symptoms and provide structured educational insights, likely conditions, and recommended next steps. It features a complete identity system and medical condition triage.
+## ✨ Key Features & Architecture
 
 ## ✨ Features
 
-- **Advanced AI Integration**: Powered by Google's `google-genai` SDK and the ultra-fast `gemini-2.5-flash` model.
-- **Context-Aware Medical Profiles**: Users can save Age, Gender, and Pre-existing Conditions, which are invisibly injected into the AI context to provide highly personalized and accurate medical insights.
-- **Emergency Triage Engine**: Automatically flags critical or life-threatening symptoms and overrides the UI with a pulsing emergency banner.
-- **User Authentication**: Secure JSON Web Token (JWT) identity system utilizing `passlib` and `bcrypt` password hashing. Data is strictly scoped to the logged-in user.
-- **Dynamic Frontend**: A beautiful responsive UI built with React, TailwindCSS, and Framer Motion micro-animations.
-- **Robust Async Backend**: Powered by FastAPI and `motor` (asyncio MongoDB driver), ensuring lightning-fast non-blocking API endpoints.
-- **Universal Deployment**: Fully Dockerized. Includes `docker-compose.yml` for instant zero-configuration deployment on any machine.
-- **Mac-Native Fixes**: Bypasses strict macOS python SSL certificate limitations automatically using `certifi`.
+- **Advanced AI Integration**: Powered by Google's `google-genai` SDK and the ultra-fast `gemini-2.5-flash` model. Enforces strict JSON schema generation to ensure deterministic frontend parsing and reliable, formatted health insights without raw text unpredictable outputs.
+- **Context-Aware Medical Profiles**: Users can save Age, Gender, and Pre-existing Conditions, which are invisibly injected into the AI context to provide highly personalized and accurate medical insights. This heavily reduces AI hallucinations and ensures condition likelihoods are safely tailored to the patient's individual demographics.
+- **Emergency Triage Engine**: Automatically flags critical or life-threatening symptoms and overrides the UI with a pulsing emergency banner. It actively prevents patients from mistaking serious acute symptoms for minor illnesses by directing them immediately to emergency services.
+- **User Authentication**: Secure JSON Web Token (JWT) identity system utilizing `passlib` and `bcrypt` password hashing. Data is strictly scoped to the logged-in user, guaranteeing absolute database-level data isolation and privacy protection for sensitive condition history.
+- **Dynamic Frontend**: A beautiful responsive UI built with React, TailwindCSS, and Framer Motion micro-animations. Implements clean, component-based rendering alongside protected `react-router-dom` layers to cleanly handle auth-gated dashboards.
+- **Robust Async Backend**: Powered by FastAPI and `motor` (asyncio MongoDB driver), ensuring lightning-fast non-blocking API endpoints. Completely eliminates traditional backend synchronous bottlenecks, allowing the API to handle high-throughput scaling natively.
+- **Universal Deployment**: Fully Dockerized. Includes `docker-compose.yml` for instant zero-configuration deployment on any machine. Neatly separates the frontend and backend into distinct build containers for clean DevOps pipelines.
+- **Mac-Native Fixes**: Bypasses strict macOS python SSL certificate limitations automatically using `certifi`. Prevents classic localized database timeout crashes and pip installation failures right out-of-the-box for Apple hardware environments.
 
 ## 📂 Project Structure
 
