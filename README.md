@@ -6,7 +6,7 @@
 ![Gemini AI](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=flat&logo=google&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 
-**Live Demo: [Insert Render/Vercel URL Here]**
+**Live Demo: [https://health-symptom-checker-1.vercel.app/]**
 
 A modern, full-stack, production-ready web application that uses Google's latest Gemini AI models to analyze user symptoms and provide structured educational insights, likely conditions, and recommended next steps. It features a complete identity system and medical condition triage.
 
